@@ -595,7 +595,10 @@ static void ir_print_c_import(IrPrint *irp, IrInstructionCImport *instruction) {
 }
 
 static void ir_print_c_include(IrPrint *irp, IrInstructionCInclude *instruction) {
-    fprintf(irp->f, "@cInclude(");
+    if (instruction->is_local)
+        fprintf(irp->f, "@cIncludeLocal(");
+    else 
+        fprintf(irp->f, "@cInclude(");
     ir_print_other_instruction(irp, instruction->name);
     fprintf(irp->f, ")");
 }

@@ -1813,9 +1813,10 @@ static IrInstruction *ir_build_c_import(IrBuilder *irb, Scope *scope, AstNode *s
     return &instruction->base;
 }
 
-static IrInstruction *ir_build_c_include(IrBuilder *irb, Scope *scope, AstNode *source_node, IrInstruction *name) {
+static IrInstruction *ir_build_c_include(IrBuilder *irb, Scope *scope, AstNode *source_node, IrInstruction *name, bool is_local) {
     IrInstructionCInclude *instruction = ir_build_instruction<IrInstructionCInclude>(irb, scope, source_node);
     instruction->name = name;
+    instruction->is_local = is_local;
 
     ir_ref_instruction(name, irb->current_basic_block);
 
@@ -3723,7 +3724,22 @@ static IrInstruction *ir_gen_builtin_fn_call(IrBuilder *irb, Scope *scope, AstNo
                     return irb->codegen->invalid_instruction;
                 }
 
-                IrInstruction *c_include = ir_build_c_include(irb, scope, node, arg0_value);
+                IrInstruction *c_include = ir_build_c_include(irb, scope, node, arg0_value, false);
+                return ir_lval_wrap(irb, scope, c_include, lval);
+            }
+        case BuiltinFnIdCIncludeLocal:
+            {
+                AstNode *arg0_node = node->data.fn_call_expr.params.at(0);
+                IrInstruction *arg0_value = ir_gen_node(irb, arg0_node, scope);
+                if (arg0_value == irb->codegen->invalid_instruction)
+                    return arg0_value;
+
+                if (!exec_c_import_buf(irb->exec)) {
+                    add_node_error(irb->codegen, node, buf_sprintf("C include valid only inside C import block"));
+                    return irb->codegen->invalid_instruction;
+                }
+
+                IrInstruction *c_include = ir_build_c_include(irb, scope, node, arg0_value, true);
                 return ir_lval_wrap(irb, scope, c_include, lval);
             }
         case BuiltinFnIdCDefine:
@@ -16799,7 +16815,10 @@ static TypeTableEntry *ir_analyze_instruction_c_include(IrAnalyze *ira, IrInstru
     // We check for this error in pass1
     assert(c_import_buf);
 
-    buf_appendf(c_import_buf, "#include <%s>\n", buf_ptr(include_name));
+    if (instruction->is_local)
+        buf_appendf(c_import_buf, "#include \"%s\"\n", buf_ptr(include_name));
+    else
+        buf_appendf(c_import_buf, "#include <%s>\n", buf_ptr(include_name));
 
     ir_build_const_from(ira, &instruction->base);
     return ira->codegen->builtin_types.entry_void;

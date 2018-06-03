@@ -1307,6 +1307,7 @@ enum BuiltinFnId {
     BuiltinFnIdMulWithOverflow,
     BuiltinFnIdShlWithOverflow,
     BuiltinFnIdCInclude,
+    BuiltinFnIdCIncludeLocal,
     BuiltinFnIdCDefine,
     BuiltinFnIdCUndef,
     BuiltinFnIdCompileErr,
@@ -2548,6 +2549,7 @@ struct IrInstructionCInclude {
     IrInstruction base;
 
     IrInstruction *name;
+    bool is_local;
 };
 
 struct IrInstructionCDefine {
